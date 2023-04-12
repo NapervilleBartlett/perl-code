@@ -1,0 +1,129 @@
+
+#!/usr/bin/perl
+
+# perl ConvertMSCtoSVT 1.3.1.6.msc   /tmp/1.3.1.6_XYZ_RandomNumber  /tmp/DocFile_XYZ_RandomNumber
+
+
+
+
+
+@numbers = ();
+@NeededLines = () ;
+
+
+$filename     = $ARGV[0] ;
+$Out_filename = $ARGV[1] ;
+$doc_filename = $ARGV[2] ;
+
+if (! open(FILENAME,$filename))  {
+	die " ***** Could not open $filename \n\n";
+	}
+
+
+
+
+$GetTheseLines = '' ;
+%FinalLines  = () ;
+
+while (<FILENAME>) {
+	
+	$line = $_ ;
+	chop ($line);
+
+        if (/INSTANCE /) { 
+		$GetTheseLines = ' ' ;
+		$line = $_;
+		$line =~ s/^\s+// ; 
+		($inst, $NE, $remain) = split (/\s+/,$line) ;
+		next ; }
+
+	
+	if (/ENDINSTANCE/) { $GetTheseLines = ''; next ;}
+	
+	if ($GetTheseLines) {
+	  if (/MSC AT/) {
+		push(@NeededLines,"$NE $_") ;
+
+		# print "Idrees got NE= :$NE:  line= $_\n";
+		/MSC AT \[/ ;
+		$resulting_str = $' ;
+		$resulting_str =~ s/(\d+).*/\1/ ;
+		push (@numbers,$resulting_str) ;
+		
+		chop($resulting_str);
+		# print "Idrees resulting_str=$resulting_str=\n";
+		$FinalLines{$resulting_str} = "$NE $line";
+		}
+	}
+}
+close(FILENAME) ;
+
+
+
+open F, "> $Out_filename" or die "Can't open $Out_filename : $!";
+
+
+
+foreach $key (sort by_value keys %FinalLines ) {
+	$line = $FinalLines {$key} ;
+	$line =~ s/\/.*//g;
+	# print "Idrees line=$line\n" ;
+
+	($ne, $in_out_set,$xms) = split (/\s+/,$line) ;
+	$msg = $line;
+	$msg =~ /.* IN (.*) FROM (.*)/ ;
+	$msg =~ /.* OUT (.*) TO (.*)/ ;
+	$msg = $1;
+	$ne2=$2;
+
+
+	if    ($line =~ / FROM /) {print F "$ne2   $ne   $msg \n" ; }
+	elsif ($line =~ / TO /)   {print F "$ne    $ne2  $msg \n" ; }
+	else                      {print F "$line             \n" ; }
+
+
+} 
+close (F) ;
+
+&CreateDocFile();
+
+
+
+sub by_value    {$a <=> $b; }
+
+
+
+
+
+
+
+sub CreateDocFile
+{
+
+	if (! open(FILENAME,$filename))  { die " ***** Could not open $filename \n\n"; }
+	
+	@DocLines = () ;
+	$cont = 0 ;
+	while (<FILENAME>) {
+		
+		$line =$_;
+		if ($line =~ /CIF TEXT/) { $cont = 1 ;} 
+
+		if ($cont) {
+			push (@DocLines,$line) ;
+			if ($line =~ /CIF End Text/) {last ;}
+		}
+	}
+	close(FILENAME);
+	
+
+
+
+
+	open DF, "> $doc_filename " or die "Can't open $doc_filename : $!";
+	print DF "@DocLines";
+	close (DF) ;
+
+}
+
+
